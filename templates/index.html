@@ -1,0 +1,1023 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | InvoiceFlow{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block body_attrs %}x-data="invoiceApp()"{% endblock %}
+
+{% block content %}
+    <!-- 1. DASHBOARD MODULE -->
+    <div x-show="activeTab === 'dashboard'" x-cloak class="space-y-8 animate-fade-in">
+        
+        <div class="rounded-xl border border-slate-200 bg-white shadow-subtle">
+            <div class="px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900">Centro de Control IA</h1>
+                    <p class="text-xs text-slate-500 mt-1">Monitoreo en tiempo real del motor de procesamiento.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Sistema Activo</span>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-500">
+                        <i class="fas fa-shield-halved text-emerald-500"></i>
+                        IA Supervisada
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Cards (Operational Focus) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Processing Queue -->
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-subtle hover:border-slate-300 transition-all cursor-pointer group"
+                 @click="activeTab = 'invoices'; filters.processed = 'false'; loadInvoices()">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cola de Procesamiento</p>
+                        <h3 class="text-2xl font-semibold text-slate-900 mt-1" x-text="statistics.queue?.pending || 0"></h3>
+                    </div>
+                    <div class="text-slate-300 group-hover:text-slate-900 transition-colors">
+                        <i class="fas fa-layer-group text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center text-[11px] font-medium w-fit px-2 py-0.5 rounded border"
+                     :class="(statistics.queue?.pending || 0) > 5 ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-slate-500 bg-slate-50 border-slate-100'">
+                    <span x-text="(statistics.queue?.pending || 0) > 0 ? 'En espera' : 'Todo al día'"></span>
+                </div>
+            </div>
+
+            <!-- Daily Throughput -->
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-subtle hover:border-slate-300 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Procesadas Hoy</p>
+                        <h3 class="text-2xl font-semibold text-slate-900 mt-1" x-text="statistics.performance?.daily_processed || 0"></h3>
+                    </div>
+                    <div class="text-slate-300">
+                        <i class="fas fa-bolt text-lg text-amber-300"></i>
+                    </div>
+                </div>
+                <p class="mt-4 text-[11px] text-slate-500">
+                    Documentos digitalizados últimas 24h
+                </p>
+            </div>
+
+            <!-- AI Quality -->
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-subtle hover:border-slate-300 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Calidad de Extracción</p>
+                        <h3 class="text-2xl font-semibold text-slate-900 mt-1">
+                            <span x-text="Math.round((statistics.performance?.avg_confidence || 0) * 100)"></span>%
+                        </h3>
+                    </div>
+                    <div class="text-slate-300">
+                        <i class="fas fa-brain text-lg text-indigo-200"></i>
+                    </div>
+                </div>
+                <div class="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-indigo-500 rounded-full" :style="`width: ${(statistics.performance?.avg_confidence || 0) * 100}%`"></div>
+                </div>
+            </div>
+
+            <!-- Cost Efficiency -->
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-subtle hover:border-slate-300 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Costo Promedio</p>
+                        <h3 class="text-2xl font-semibold text-slate-900 mt-1" x-text="'$' + (statistics.costs?.avg_cost_per_doc || 0).toFixed(4)"></h3>
+                    </div>
+                    <div class="text-slate-300">
+                        <i class="fas fa-coins text-lg text-emerald-200"></i>
+                    </div>
+                </div>
+                <p class="mt-4 text-[11px] text-slate-500">
+                    por documento procesado
+                </p>
+            </div>
+        </div>
+
+        <!-- Processing Feed & Live Log -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Recent Activity / Audit Feed -->
+            <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-slate-900">Actividad de Procesamiento</h3>
+                    <div class="flex gap-2">
+                        <span class="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">Últimos 5</span>
+                    </div>
+                </div>
+                <div class="divide-y divide-slate-50 flex-1">
+                    <template x-for="invoice in invoices.slice(0, 5)" :key="invoice.id">
+                        <div class="px-6 py-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer" @click="goToDetail(invoice.id)">
+                            <div class="flex items-center gap-4">
+                                <!-- Icono Estado -->
+                                <div class="relative">
+                                    <div class="h-8 w-8 rounded flex items-center justify-center text-xs border"
+                                         :class="invoice.processed ? (hasWarnings(invoice) ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : 'bg-slate-50 text-slate-400 border-slate-200'">
+                                        <i :class="invoice.processed ? (hasWarnings(invoice) ? 'fas fa-exclamation' : 'fas fa-check') : 'fas fa-hourglass-half'"></i>
+                                    </div>
+                                    <div x-show="invoice.file_type === 'image'" class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 border border-slate-100 shadow-sm">
+                                        <i class="fas fa-image text-[8px] text-slate-400"></i>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p class="text-sm font-medium text-slate-900" x-text="invoice.vendor_name || 'Procesando...'"></p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-[10px] font-mono text-slate-400" x-text="'ID: #' + invoice.id"></span>
+                                        <span class="text-[10px] text-slate-300">•</span>
+                                        <span class="text-[10px] text-slate-500" x-text="formatDate(invoice.created_at)"></span>
+
+                                        <!-- WhatsApp Tag -->
+                                        <template x-if="invoice.description && invoice.description.toLowerCase().includes('whatsapp')">
+                                            <span class="ml-1 text-[9px] bg-[#25D366]/10 text-[#25D366] px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                                                <i class="fab fa-whatsapp"></i> WA
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-right">
+                                <div x-show="invoice.processed">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                          :class="(invoice.confidence_score || 0) > 0.8 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'">
+                                        <i class="fas fa-magic mr-1 text-[8px]"></i>
+                                        <span x-text="Math.round((invoice.confidence_score || 0) * 100) + '%'"></span>
+                                    </span>
+                                </div>
+                                <div x-show="!invoice.processed">
+                                    <span class="text-[10px] text-slate-400 animate-pulse">Analizando...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- LIVE PULSE LOG (Nuevo Centro de Control) -->
+            <div class="space-y-6">
+                <div class="bg-slate-950 rounded-xl shadow-2xl overflow-hidden flex flex-col h-[320px] border border-slate-800">
+                    <div class="px-4 py-3 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                            <h3 class="text-xs font-bold text-gray-200 uppercase tracking-wider font-mono">Live Pulse</h3>
+                        </div>
+                        <span class="text-[10px] text-slate-500 font-mono" x-text="connectionStatus === 'connected' ? 'ONLINE' : 'OFFLINE'"></span>
+                    </div>
+
+                    <div class="flex-1 p-4 overflow-y-auto custom-scrollbar font-mono text-xs space-y-3" x-ref="liveLogContainer">
+                        <template x-for="log in liveLogs" :key="log.id">
+                            <div class="flex gap-3 animate-slide-up">
+                                <div class="w-10 text-slate-600 flex-shrink-0 text-[10px]" x-text="log.time"></div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas text-[10px]" :class="log.icon" :style="`color: ${log.color}`"></i>
+                                        <span class="font-bold" :style="`color: ${log.color}`" x-text="log.source"></span>
+                                    </div>
+                                    <p class="text-slate-400 mt-0.5 leading-relaxed" x-text="log.message"></p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="liveLogs.length === 0" class="h-full flex flex-col items-center justify-center text-slate-600 text-center opacity-50">
+                            <i class="fas fa-satellite-dish text-2xl mb-2"></i>
+                            <p>Esperando eventos...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Status (Compact) -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-subtle p-4 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Motor IA</p>
+                        <p class="text-sm font-bold text-slate-900 mt-0.5">GPT-4o</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-400 uppercase tracking-widest">Latencia Est.</p>
+                        <p class="text-sm font-mono text-emerald-600 font-bold">~450ms</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. INVOICES MODULE -->
+    <div x-show="activeTab === 'invoices'" x-cloak class="space-y-6 animate-fade-in h-full flex flex-col">
+        <!-- Toolbar -->
+        <div class="rounded-xl border border-slate-200 bg-white shadow-subtle p-5 flex flex-col lg:flex-row gap-4 lg:items-center">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-slate-900">Registro de Facturas</h2>
+                    <p class="text-[10px] text-slate-400">Busca, filtra y procesa en lote</p>
+                </div>
+            </div>
+
+            <div class="flex flex-1 flex-col sm:flex-row gap-3 lg:justify-end">
+                <div class="relative flex-grow max-w-sm">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                    <input type="text" placeholder="Buscar proveedor o NCF..." x-model="filters.search" @input="searchInvoices()" class="pl-9 block w-full rounded-lg border-slate-200 bg-slate-50 text-xs py-2.5 focus:ring-0 focus:border-slate-400 transition-all">
+                </div>
+
+                <select x-model="filters.transaction_type" @change="loadInvoices()" class="rounded-lg border-slate-200 text-xs py-2.5 bg-white font-semibold focus:ring-0 focus:border-slate-400">
+                    <option value="">Todos los tipos</option>
+                    <option value="income">Ventas (Ingresos)</option>
+                    <option value="expense">Compras (Gastos)</option>
+                </select>
+
+                <button @click="processAllPending()" :disabled="processingInvoices.size > 0" class="inline-flex items-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50 transition-all">
+                    <i class="fas fa-play mr-2 text-[10px]"></i> Procesar Pendientes
+                </button>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden flex-1 flex flex-col relative">
+            
+            <!-- Floating Toolbar -->
+            <div x-show="selectedInvoices.length > 0" x-transition.duration.200ms 
+                 class="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-6 border border-slate-800 ring-4 ring-white/10">
+                <span class="text-xs font-bold"><span x-text="selectedInvoices.length"></span> seleccionados</span>
+                <div class="h-4 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-4">
+                    <button @click="bulkProcess()" class="hover:text-blue-400 transition-colors flex items-center text-xs font-bold uppercase tracking-wider">
+                        <i class="fas fa-bolt mr-2"></i> Procesar
+                    </button>
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" class="hover:text-indigo-400 transition-colors flex items-center text-xs font-bold uppercase tracking-wider">
+                            <i class="fas fa-download mr-2"></i> Exportar
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-cloak class="absolute bottom-full left-0 mb-2 w-48 bg-white rounded-lg shadow-xl py-1 text-slate-800 z-50 border border-slate-200">
+                            <button @click="exportSelected('csv'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">CSV Estándar</button>
+                            <button @click="exportSelected('excel'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">Excel (XLSX)</button>
+                            <button @click="exportSelected('quickbooks_bills'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">QuickBooks (Bills CSV)</button>
+                            <button @click="exportSelected('xero'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">Xero (Bills CSV)</button>
+                            <button @click="exportSelected('odoo'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">Odoo (Vendor Bills)</button>
+                            <button @click="exportSelected('contaplus'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">Contaplus</button>
+                            <button @click="exportSelected('json'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">JSON</button>
+                            <button @click="exportSelected('dgii_606'); open=false" class="block w-full text-left px-4 py-2 text-xs hover:bg-gray-50">DGII 606</button>
+                        </div>
+                    </div>
+                    <button @click="pushToWebhook()" class="hover:text-emerald-400 transition-colors flex items-center text-xs font-bold uppercase tracking-wider">
+                        <i class="fas fa-paper-plane mr-2"></i> Webhook
+                    </button>
+                    <button @click="bulkDelete()" class="hover:text-rose-400 transition-colors flex items-center text-xs font-bold uppercase tracking-wider">
+                        <i class="fas fa-trash-alt mr-2"></i> Borrar
+                    </button>
+                </div>
+                <button @click="selectedInvoices = []; allSelected = false" class="text-gray-500 hover:text-white transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="invoices.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-20 p-8 text-center">
+                <div class="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                    <i class="fas fa-file-invoice text-2xl text-slate-300"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-slate-900">No hay documentos</h3>
+                <p class="text-xs text-slate-500 mt-1 mb-6">Empieza subiendo tus facturas o tickets.</p>
+                <button @click="activeTab = 'upload'" class="inline-flex items-center px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-md hover:bg-slate-800 transition-all">
+                    Importar Factura
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-auto custom-scrollbar flex-1">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left w-10">
+                                <input type="checkbox" class="rounded border-slate-300 text-slate-900 focus:ring-0" @change="toggleAll()" :checked="allSelected">
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fecha</th>
+                            <th scope="col" class="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">NCF</th>
+                            <th scope="col" class="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proveedor</th>
+                            <th scope="col" class="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoría</th>
+                            <th scope="col" class="px-4 py-3 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Importe</th>
+                            <th scope="col" class="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-100">
+                        <template x-for="invoice in invoices" :key="invoice.id">
+                            <tr class="hover:bg-slate-50/80 transition-colors group cursor-pointer" :class="selectedInvoices.includes(invoice.id) ? 'bg-slate-100/60' : ''">
+                                <td class="px-6 py-3">
+                                    <input type="checkbox" class="rounded border-slate-300 text-slate-900 focus:ring-0" :checked="selectedInvoices.includes(invoice.id)" @change.stop="toggleInvoice(invoice.id)" @click.stop>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-xs text-slate-500 font-medium" x-text="formatDate(invoice.invoice_date)" @click="goToDetail(invoice.id)"></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-xs text-slate-900 font-semibold" @click="goToDetail(invoice.id)">
+                                    <div class="flex items-center">
+                                        <span x-text="invoice.invoice_number || '---'"></span>
+                                        <i x-show="hasWarnings(invoice)" class="fas fa-circle-exclamation text-amber-500 ml-2" title="Anomalía detectada"></i>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-xs text-slate-600" x-text="invoice.vendor_name || '---'" @click="goToDetail(invoice.id)"></td>
+                                <td class="px-4 py-3 whitespace-nowrap" @click="goToDetail(invoice.id)">
+                                    <span class="text-[10px] font-bold uppercase tracking-tight text-slate-500 border border-slate-100 px-1.5 py-0.5 rounded bg-slate-50" x-text="invoice.category || 'PENDIENTE'"></span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-xs font-bold text-slate-900 font-mono" x-text="formatCurrency(invoice.total_amount, invoice.currency)" @click="goToDetail(invoice.id)"></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-center" @click="goToDetail(invoice.id)">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter" :class="invoice.processed ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                                        <span x-text="invoice.processed ? 'OK' : 'Draft'"></span>
+                                    </span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. UPLOAD / PIPELINE MODULE (PROFESSIONAL) -->
+    <div x-show="activeTab === 'upload'" x-cloak class="max-w-6xl mx-auto space-y-8 animate-fade-in py-8">
+        <!-- Header -->
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Pipeline de Carga</h1>
+                <p class="mt-1 text-sm text-slate-500">Importa, analiza y valida documentos en lote con precisión de datos.</p>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-600">
+                <i class="fas fa-circle-check text-emerald-500"></i>
+                Entrada multicanal: web + WhatsApp
+            </div>
+        </div>
+
+        <!-- Progress Stepper -->
+        <div class="rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-subtle">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                <div class="flex items-center gap-3 cursor-pointer" @click="if(pipelineStep > 1) pipelineStep = 1">
+                    <span class="h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold" :class="pipelineStep >= 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'">1</span>
+                    <div>
+                        <p :class="pipelineStep >= 1 ? 'text-slate-800' : ''">Carga & Configuración</p>
+                        <p class="text-[10px] font-normal normal-case tracking-normal text-slate-400">Sube archivos y define criterios</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold" :class="pipelineStep >= 2 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'">2</span>
+                    <div>
+                        <p :class="pipelineStep >= 2 ? 'text-slate-800' : ''">Análisis IA</p>
+                        <p class="text-[10px] font-normal normal-case tracking-normal text-slate-400">Extracción y validación</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold" :class="pipelineStep >= 3 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'">3</span>
+                    <div>
+                        <p :class="pipelineStep >= 3 ? 'text-slate-800' : ''">Revisión Final</p>
+                        <p class="text-[10px] font-normal normal-case tracking-normal text-slate-400">Aprobación rápida</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 1: UPLOAD & CONFIG -->
+        <div x-show="pipelineStep === 1" class="space-y-6 animate-slide-up">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Dropzone -->
+                <div class="lg:col-span-8 bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center hover:border-slate-900 hover:bg-slate-50/40 transition-all cursor-pointer"
+                     @click="$refs.fileInput.click()"
+                     @dragover.prevent="dragover = true"
+                     @dragleave.prevent="dragover = false"
+                     @drop.prevent="handleFileDrop($event)"
+                     :class="{'border-slate-900 bg-slate-50': dragover}">
+                    <div class="mx-auto h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 mb-4">
+                        <i class="fas fa-cloud-arrow-up text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-900">Arrastra tus facturas aquí</h3>
+                    <p class="text-xs text-slate-500 mt-1 mb-5">PDF, JPG o PNG (Max 10MB)</p>
+                    <button class="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-all">
+                        Explorar Archivos
+                    </button>
+                    <input type="file" multiple accept=".jpg,.jpeg,.png,.pdf" @change="handleFileSelect($event)" class="hidden" x-ref="fileInput">
+                </div>
+
+                <!-- Batch Settings -->
+                <div class="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-6 space-y-4 h-fit shadow-subtle">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                        <i class="fas fa-sliders mr-2 text-slate-400"></i> Configuración del Lote
+                    </h3>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">Categoría por Defecto</label>
+                        <select x-model="batchConfig.category" class="block w-full rounded-lg border-slate-200 text-sm focus:ring-slate-900 focus:border-slate-900 py-2 bg-white">
+                            <option value="">Detectar Automáticamente</option>
+                            <option value="Viajes">Viajes y Dietas</option>
+                            <option value="Oficina">Material de Oficina</option>
+                            <option value="Software">Software / SaaS</option>
+                            <option value="Servicios">Servicios Profesionales</option>
+                        </select>
+                        <p class="mt-1 text-[10px] text-slate-400">Se aplicará si la IA tiene dudas.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1.5">Tipo de Transacción</label>
+                        <div class="flex rounded-md shadow-sm">
+                            <button @click="batchConfig.type = 'expense'" class="flex-1 px-3 py-2 text-xs font-medium rounded-l-lg border border-slate-200 focus:z-10 focus:ring-1 focus:ring-slate-900 transition-colors" :class="batchConfig.type === 'expense' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 hover:bg-slate-50'">Gastos</button>
+                            <button @click="batchConfig.type = 'income'" class="flex-1 px-3 py-2 text-xs font-medium rounded-r-lg border border-l-0 border-slate-200 focus:z-10 focus:ring-1 focus:ring-slate-900 transition-colors" :class="batchConfig.type === 'income' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 hover:bg-slate-50'">Ingresos</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue -->
+            <div x-show="selectedFiles.length > 0" class="bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden">
+                <div class="px-6 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider" x-text="selectedFiles.length + ' Archivos listos'"></span>
+                    <button @click="selectedFiles = []" class="text-xs text-rose-500 hover:text-rose-700 font-medium">Limpiar todo</button>
+                </div>
+                <ul class="divide-y divide-slate-100 max-h-60 overflow-y-auto custom-scrollbar">
+                    <template x-for="(file, index) in selectedFiles" :key="index">
+                        <li class="px-6 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-600"><i class="fas" :class="file.type.includes('pdf') ? 'fa-file-pdf' : 'fa-image'"></i></div>
+                                <div>
+                                    <p class="text-sm font-medium text-slate-900 truncate w-64" x-text="file.name"></p>
+                                    <p class="text-[10px] text-slate-400" x-text="formatFileSize(file.size)"></p>
+                                </div>
+                            </div>
+                            <button @click="removeFile(index)" class="text-slate-300 hover:text-rose-500 transition-colors p-1"><i class="fas fa-times"></i></button>
+                        </li>
+                    </template>
+                </ul>
+                <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                    <button @click="uploadFiles()" :disabled="uploading" class="inline-flex items-center px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-lg shadow-sm transition-all duration-200">
+                        <i class="fas fa-rocket mr-2"></i> Iniciar Procesamiento
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: GRANULAR PROCESSING -->
+        <div x-show="pipelineStep === 2" class="max-w-3xl mx-auto space-y-6">
+            <div class="text-center">
+                <div class="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600">
+                    <i class="fas fa-brain text-slate-600 animate-pulse"></i>
+                    Analizando documentos con IA
+                </div>
+                <h3 class="mt-4 text-lg font-bold text-slate-900">Procesando lote</h3>
+                <p class="text-sm text-slate-500">Extracción, validación y estandarización de datos en curso.</p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden">
+                <div class="px-6 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Estado en tiempo real</span>
+                    <span class="text-xs font-mono text-slate-700" x-text="Math.round(processingProgress) + '%'"></span>
+                </div>
+                <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto custom-scrollbar">
+                    <template x-for="(file, index) in processingStatus" :key="index">
+                        <div class="px-6 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-2 h-2 rounded-full flex-shrink-0" :class="{'bg-slate-300': file.status === 'pending', 'bg-blue-500 animate-pulse': file.status === 'uploading', 'bg-indigo-500 animate-pulse': file.status === 'processing', 'bg-emerald-500': file.status === 'done', 'bg-rose-500': file.status === 'error'}"></div>
+                                <span class="text-sm font-medium text-slate-700 truncate w-56" x-text="file.name"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <template x-if="file.status === 'pending'"><span class="text-xs text-slate-400">En cola...</span></template>
+                                <template x-if="file.status === 'uploading'"><span class="text-xs text-blue-600 font-medium">Subiendo...</span></template>
+                                <template x-if="file.status === 'processing'"><span class="text-xs text-indigo-600 font-medium flex items-center"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> IA Analizando</span></template>
+                                <template x-if="file.status === 'done'"><span class="text-xs text-emerald-600 font-bold flex items-center"><i class="fas fa-check mr-1"></i> Completado</span></template>
+                                <template x-if="file.status === 'error'"><span class="text-xs text-rose-600 font-bold">Error</span></template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: SMART REVIEW GRID -->
+        <div x-show="pipelineStep === 3" class="space-y-6 animate-slide-up">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 rounded-xl border border-emerald-100 bg-emerald-50 p-5">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center"><i class="fas fa-check-double"></i></div>
+                    <div>
+                        <h3 class="text-sm font-bold text-emerald-900">Proceso Finalizado</h3>
+                        <p class="text-xs text-emerald-700">Revisa y aprueba las facturas procesadas.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="resetPipeline()" class="text-xs font-medium text-slate-500 hover:text-slate-900">Subir más</button>
+                    <button @click="approveAll()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all"><i class="fas fa-check mr-2"></i> Aprobar Todo</button>
+                </div>
+            </div>
+
+            <!-- Editable Grid -->
+            <div class="bg-white border border-slate-200 rounded-xl shadow-subtle overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-10">Img</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Proveedor</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Categoría</th>
+                                <th class="px-4 py-3 text-center w-10"><i class="fas fa-bell text-slate-400"></i></th>
+                                <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-20">Confianza</th>
+                                <th class="px-4 py-3 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-100">
+                            <template x-for="(item, index) in processingResults" :key="item.id">
+                                <tr class="group hover:bg-slate-50 transition-colors" :class="item.audit_warnings?.length > 0 ? 'bg-amber-50/50' : ''">
+                                    <td class="px-4 py-2 relative">
+                                        <div class="relative group/thumb cursor-zoom-in">
+                                            <i class="fas fa-file-image text-slate-400 text-xl"></i>
+                                            <div class="hidden group-hover/thumb:block absolute left-full top-0 ml-2 z-50 w-64 bg-white p-1 rounded-lg shadow-2xl border border-slate-200 animate-fade-in">
+                                                <img :src="`/invoice/${item.id}/optimized-image`" class="w-full h-auto rounded" alt="Preview">
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-2"><input type="text" x-model="item.vendor_name" class="w-full border-0 bg-transparent p-0 text-sm font-medium text-slate-900 focus:ring-0 border-b border-transparent focus:border-slate-900 focus:bg-white transition-all placeholder-slate-300" placeholder="Proveedor..."></td>
+                                    <td class="px-4 py-2"><input type="date" x-model="item.invoice_date" class="w-full border-0 bg-transparent p-0 text-xs text-slate-600 focus:ring-0 border-b border-transparent focus:border-slate-900 focus:bg-white transition-all"></td>
+                                    <td class="px-4 py-2"><div class="flex items-center"><span class="text-xs text-slate-400 mr-1">RD$</span><input type="number" step="0.01" x-model="item.total_amount" class="w-24 border-0 bg-transparent p-0 text-sm font-bold text-slate-900 focus:ring-0 border-b border-transparent focus:border-slate-900 focus:bg-white transition-all"></div></td>
+                                    <td class="px-4 py-2">
+                                        <select x-model="item.category" class="w-full border-0 bg-transparent p-0 text-xs text-slate-600 focus:ring-0 border-b border-transparent focus:border-slate-900 focus:bg-white transition-all">
+                                            <option value="">Seleccionar...</option>
+                                            <option value="Viajes">Viajes</option>
+                                            <option value="Oficina">Oficina</option>
+                                            <option value="Software">Software</option>
+                                            <option value="Servicios">Servicios</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-4 py-2 text-center relative">
+                                        <template x-if="item.audit_warnings && item.audit_warnings.length > 0">
+                                            <div class="group/tooltip relative inline-block">
+                                                <i class="fas fa-exclamation-triangle text-amber-500 cursor-help text-xs animate-pulse"></i>
+                                                <div class="hidden group-hover/tooltip:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 bg-slate-900 text-white text-[10px] rounded p-2 z-50 shadow-xl">
+                                                    <template x-for="w in item.audit_warnings"><div x-text="w" class="mb-1 last:mb-0 border-b border-slate-700 last:border-0 pb-1 last:pb-0"></div></template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </td>
+                                    <td class="px-4 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium" :class="(item.confidence || 0) > 0.8 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"><span x-text="Math.round((item.confidence || 0) * 100) + '%'"></span></span></td>
+                                    <td class="px-4 py-2 text-right"><button @click="saveRow(item)" class="text-slate-300 hover:text-slate-900 transition-colors" title="Guardar"><i class="fas fa-save"></i></button></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Component -->
+    <div x-show="toast.show" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         class="fixed bottom-6 right-6 z-50">
+        <div class="flex items-center p-4 rounded-lg shadow-lg border bg-white"
+             :class="toast.type === 'success' ? 'border-green-200 text-green-800' : 'border-red-200 text-red-800'">
+            <i class="mr-3 text-lg" :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-times-circle'"></i>
+            <span class="font-medium text-sm" x-text="toast.message"></span>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function invoiceApp() {
+        return {
+            activeTab: 'dashboard',
+            
+            // Pipeline State
+            pipelineStep: 1,
+            selectedFiles: [],
+            processingStatus: [],
+            processingResults: [],
+            uploading: false,
+            processingProgress: 0,
+            batchConfig: { category: '', type: 'expense' },
+
+            // Shared State
+            invoices: [],
+            statistics: {},
+            filters: { transaction_type: '', processed: '', search: '' },
+            selectedInvoices: [],
+            allSelected: false,
+            processingInvoices: new Set(),
+            toast: { show: false, message: '', type: 'success' },
+            websocket: null,
+            connectionStatus: 'disconnected',
+            notifications: [],
+            dragover: false,
+            charts: {},
+            liveLogs: [],
+            searchDebounce: null,
+
+            init() {
+                const params = new URLSearchParams(window.location.search);
+                const tab = params.get('tab');
+                const search = params.get('search');
+                if(tab && ['dashboard', 'invoices', 'upload'].includes(tab)) {
+                    this.activeTab = tab;
+                }
+                if (search) {
+                    this.filters.search = decodeURIComponent(search);
+                    if (!tab) this.activeTab = 'invoices';
+                }
+                this.loadInvoices();
+                this.loadStatistics();
+                this.initWebSocket();
+            },
+
+            addLog(source, message, type='info', autoRemove=true) {
+                const now = new Date();
+                const time = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                let icon = 'fa-info-circle';
+                let color = '#94a3b8'; // gray-400
+
+                if (source === 'WhatsApp') { icon = 'fa-whatsapp'; color = '#22c55e'; } // green-500
+                if (source === 'Sistema') { icon = 'fa-server'; color = '#3b82f6'; } // blue-500
+                if (source === 'IA') { icon = 'fa-brain'; color = '#a855f7'; } // purple-500
+                if (type === 'success') { color = '#10b981'; } // emerald-500
+                if (type === 'error') { color = '#ef4444'; } // red-500
+
+                const logId = Date.now() + Math.random();
+
+                this.liveLogs.unshift({
+                    id: logId,
+                    time: time,
+                    source: source,
+                    message: message,
+                    icon: icon,
+                    color: color
+                });
+
+                // Auto-eliminar después de 5 segundos solo si autoRemove es true
+                if (autoRemove) {
+                    setTimeout(() => {
+                        const index = this.liveLogs.findIndex(log => log.id === logId);
+                        if (index !== -1) {
+                            this.liveLogs.splice(index, 1);
+                        }
+                    }, 5000);
+                }
+
+                // Mantener máximo 50 logs
+                if (this.liveLogs.length > 50) this.liveLogs.pop();
+            },
+
+            initWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                this.websocket = new WebSocket(wsUrl);
+                
+                this.websocket.onopen = () => {
+                    this.connectionStatus = 'connected';
+                    this.addLog('Sistema', 'Conexión en tiempo real establecida', 'success');
+                };
+                
+                this.websocket.onclose = () => {
+                    this.connectionStatus = 'disconnected';
+                    this.addLog('Sistema', 'Conexión perdida', 'error');
+                };
+
+                this.websocket.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+
+                        // Handle Live Logs
+                        if (msg.type === 'whatsapp_image_received') {
+                            const sender = msg.data.sender?.name || 'Desconocido';
+                            const invoiceId = msg.data.invoice_id;
+                            this.addLog('WhatsApp', `Imagen recibida de ${sender} (#${invoiceId})`, 'info', false);
+                        }
+                        else if (msg.type === 'processing_started') {
+                            const sender = msg.data.sender?.name || 'Usuario';
+                            const invoiceId = msg.data.invoice_id;
+                            this.addLog('IA', `Analizando #${invoiceId} de ${sender}...`, 'info', false);
+                        }
+                        else if (msg.type === 'processing_complete') {
+                            const invoiceId = msg.data.invoice_id;
+                            if (msg.data.success) {
+                                const vendor = msg.data.extracted_data?.vendor_name || 'Proveedor';
+                                const amount = this.formatCurrency(msg.data.extracted_data?.total_amount);
+                                this.addLog('IA', `✓ #${invoiceId}: ${vendor} - ${amount}`, 'success', true);
+                            } else {
+                                this.addLog('IA', `✗ #${invoiceId}: ${msg.data.error || 'Error desconocido'}`, 'error', true);
+                            }
+
+                            // Remover logs anteriores de esta factura después de completar
+                            setTimeout(() => {
+                                this.liveLogs = this.liveLogs.filter(log =>
+                                    !log.message.includes(`#${invoiceId}`) || log.message.includes('✓') || log.message.includes('✗')
+                                );
+                            }, 100);
+
+                            if (!this.uploading) {
+                                this.loadInvoices();
+                                this.loadStatistics();
+                            }
+                        }
+                        else if (msg.type === 'invoice_uploaded') {
+                            this.addLog('Sistema', `Archivo subido: ${msg.data.filename}`, 'info', true);
+                            if (!this.uploading) {
+                                this.loadInvoices();
+                                this.loadStatistics();
+                            }
+                        }
+                        else if (msg.type === 'statistics_update') {
+                            // Silent update
+                            this.statistics = msg.data;
+                            this.$nextTick(() => this.initCharts());
+                        }
+
+                    } catch (err) {
+                        console.error("WS Error:", err);
+                    }
+                };
+            },
+
+            formatCurrency(val, curr='USD') { return new Intl.NumberFormat('es-US', { style: 'currency', currency: curr, maximumFractionDigits: 0 }).format(val || 0); },
+            formatDate(str) { return str ? new Date(str).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : '-'; },
+            formatFileSize(bytes) { if(bytes===0) return '0 B'; const k=1024; const sizes=['B','KB','MB','GB']; const i=Math.floor(Math.log(bytes)/Math.log(k)); return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+' '+sizes[i]; },
+            hasWarnings(invoice) { try { const flags = typeof invoice.audit_flags === 'string' ? JSON.parse(invoice.audit_flags) : invoice.audit_flags; return Array.isArray(flags) && flags.length > 0; } catch(e) { return false; } },
+            showToast(msg, type='success') { this.toast = { show: true, message: msg, type }; setTimeout(() => this.toast.show = false, 3000); },
+            searchInvoices() {
+                clearTimeout(this.searchDebounce);
+                this.searchDebounce = setTimeout(() => this.loadInvoices(), 300);
+            },
+
+            async loadInvoices() {
+                try {
+                    const params = new URLSearchParams();
+                    if (this.filters.transaction_type) params.append('transaction_type', this.filters.transaction_type);
+                    if (this.filters.processed) params.append('processed', this.filters.processed);
+                    if (this.filters.search) params.append('search', this.filters.search);
+
+                    const response = await fetch(`/invoices?${params.toString()}`);
+                    const data = await response.json();
+                    this.invoices = data.invoices || [];
+                } catch (error) {
+                    console.error('Error loading invoices:', error);
+                    this.showToast('Error al cargar facturas', 'error');
+                }
+            },
+
+            async loadStatistics() {
+                try {
+                    const response = await fetch('/statistics');
+                    const data = await response.json();
+                    this.statistics = data;
+                    this.$nextTick(() => this.initCharts());
+                } catch (error) {
+                    console.error('Error loading statistics:', error);
+                }
+            },
+
+            goToDetail(invoiceId) {
+                window.location.href = `/invoice/${invoiceId}/view`;
+            },
+
+            async processAllPending() {
+                const pending = this.invoices.filter(inv => !inv.processed);
+                if (pending.length === 0) {
+                    this.showToast('No hay facturas pendientes', 'error');
+                    return;
+                }
+
+                for (const invoice of pending) {
+                    await this.processInvoice(invoice.id);
+                }
+            },
+
+            async processInvoice(invoiceId) {
+                if (this.processingInvoices.has(invoiceId)) return;
+
+                this.processingInvoices.add(invoiceId);
+                try {
+                    const response = await fetch(`/process/${invoiceId}`, { method: 'POST' });
+                    if (response.ok) {
+                        this.showToast('Factura procesada correctamente', 'success');
+                        await this.loadInvoices();
+                        await this.loadStatistics();
+                    } else {
+                        const error = await response.json();
+                        this.showToast(error.detail || 'Error al procesar', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.showToast('Error al procesar la factura', 'error');
+                } finally {
+                    this.processingInvoices.delete(invoiceId);
+                }
+            },
+
+            toggleAll() {
+                this.allSelected = !this.allSelected;
+                if (this.allSelected) {
+                    this.selectedInvoices = this.invoices.map(inv => inv.id);
+                } else {
+                    this.selectedInvoices = [];
+                }
+            },
+
+            toggleInvoice(invoiceId) {
+                const index = this.selectedInvoices.indexOf(invoiceId);
+                if (index > -1) {
+                    this.selectedInvoices.splice(index, 1);
+                } else {
+                    this.selectedInvoices.push(invoiceId);
+                }
+                this.allSelected = this.selectedInvoices.length === this.invoices.length;
+            },
+
+            async bulkProcess() {
+                if (this.selectedInvoices.length === 0) return;
+
+                try {
+                    const response = await fetch('/api/invoices/bulk-process', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ invoice_ids: this.selectedInvoices })
+                    });
+
+                    if (response.ok) {
+                        this.showToast('Procesamiento en lote iniciado', 'success');
+                        this.selectedInvoices = [];
+                        this.allSelected = false;
+                    }
+                } catch (error) {
+                    this.showToast('Error en procesamiento en lote', 'error');
+                }
+            },
+
+            async bulkDelete() {
+                if (this.selectedInvoices.length === 0) return;
+                if (!confirm(`¿Eliminar ${this.selectedInvoices.length} facturas?`)) return;
+
+                try {
+                    const response = await fetch('/api/invoices/bulk-delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ invoice_ids: this.selectedInvoices })
+                    });
+
+                    if (response.ok) {
+                        this.showToast('Facturas eliminadas', 'success');
+                        this.selectedInvoices = [];
+                        this.allSelected = false;
+                        await this.loadInvoices();
+                        await this.loadStatistics();
+                    }
+                } catch (error) {
+                    this.showToast('Error al eliminar', 'error');
+                }
+            },
+
+            async exportSelected(format) {
+                if (this.selectedInvoices.length === 0) {
+                    this.showToast('Selecciona facturas para exportar', 'error');
+                    return;
+                }
+
+                const params = new URLSearchParams({ format, invoice_ids: this.selectedInvoices.join(',') });
+                window.location.href = `/export/csv?${params.toString()}`;
+            },
+
+            async pushToWebhook() {
+                if (this.selectedInvoices.length === 0) {
+                    this.showToast('Selecciona facturas para enviar', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/invoices/push-webhook', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ invoice_ids: this.selectedInvoices })
+                    });
+                    if (res.ok) {
+                        this.showToast('JSON enviado a webhook', 'success');
+                        this.selectedInvoices = [];
+                        this.allSelected = false;
+                    } else {
+                        const err = await res.json();
+                        this.showToast(err.detail || 'Error enviando webhook', 'error');
+                    }
+                } catch (e) {
+                    this.showToast('Error de red', 'error');
+                }
+            },
+
+            handleFileSelect(event) {
+                const files = Array.from(event.target.files);
+                this.selectedFiles = [...this.selectedFiles, ...files];
+            },
+
+            handleFileDrop(event) {
+                this.dragover = false;
+                const files = Array.from(event.dataTransfer.files);
+                this.selectedFiles = [...this.selectedFiles, ...files];
+            },
+
+            removeFile(index) {
+                this.selectedFiles.splice(index, 1);
+            },
+
+            async uploadFiles() {
+                if (this.selectedFiles.length === 0) return;
+
+                this.uploading = true;
+                this.pipelineStep = 2;
+                this.processingStatus = this.selectedFiles.map(f => ({ name: f.name, status: 'pending' }));
+
+                try {
+                    for (let i = 0; i < this.selectedFiles.length; i++) {
+                        const file = this.selectedFiles[i];
+                        this.processingStatus[i].status = 'uploading';
+
+                        const formData = new FormData();
+                        formData.append('files', file);
+
+                        const uploadResp = await fetch('/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (uploadResp.ok) {
+                            const data = await uploadResp.json();
+                            const invoiceId = data.results?.[0]?.invoice_id;
+
+                            if (invoiceId) {
+                                this.processingStatus[i].status = 'processing';
+
+                                const processResp = await fetch(`/process/${invoiceId}`, { method: 'POST' });
+                                if (processResp.ok) {
+                                    const result = await processResp.json();
+                                    this.processingStatus[i].status = 'done';
+                                    this.processingResults.push({
+                                        id: invoiceId,
+                                        ...result.extracted_data
+                                    });
+                                } else {
+                                    this.processingStatus[i].status = 'error';
+                                }
+                            }
+                        } else {
+                            this.processingStatus[i].status = 'error';
+                        }
+
+                        this.processingProgress = ((i + 1) / this.selectedFiles.length) * 100;
+                    }
+
+                    this.pipelineStep = 3;
+                    await this.loadInvoices();
+                    await this.loadStatistics();
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.showToast('Error durante la carga', 'error');
+                } finally {
+                    this.uploading = false;
+                }
+            },
+
+            resetPipeline() {
+                this.pipelineStep = 1;
+                this.selectedFiles = [];
+                this.processingStatus = [];
+                this.processingResults = [];
+                this.processingProgress = 0;
+            },
+
+            async approveAll() {
+                this.showToast('Todas las facturas aprobadas', 'success');
+                this.resetPipeline();
+                this.activeTab = 'invoices';
+                await this.loadInvoices();
+            },
+
+            async saveRow(item) {
+                try {
+                    const response = await fetch(`/invoices/${item.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item)
+                    });
+
+                    if (response.ok) {
+                        this.showToast('Cambios guardados', 'success');
+                    }
+                } catch (error) {
+                    this.showToast('Error al guardar', 'error');
+                }
+            },
+
+            initCharts() {
+                // Placeholder for chart initialization
+                // Can be implemented with Chart.js if needed
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración | InvoiceFlow{% endblock %}
+
+{% block content %}
+<div x-data="settingsApp()" class="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in">
+
+    <!-- Header -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-subtle">
+        <div class="px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="min-w-0">
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Configuracion</h2>
+                <p class="mt-1 text-sm text-slate-500">Gestiona tu perfil, integraciones y reglas de IA.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="hidden md:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-500">
+                    <i class="fas fa-shield-halved text-emerald-500"></i>
+                    Seguridad activa
+                </div>
+                <button @click="saveSettings()"
+                        :disabled="saving"
+                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50">
+                    <i x-show="!saving" class="fas fa-save"></i>
+                    <i x-show="saving" class="fas fa-circle-notch fa-spin"></i>
+                    <span x-text="saving ? 'Guardando...' : 'Guardar Cambios'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div x-show="loading" class="flex items-center justify-center h-64 bg-white rounded-xl border border-slate-200 border-dashed">
+        <div class="flex flex-col items-center">
+            <div class="w-8 h-8 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin mb-3"></div>
+            <p class="text-sm text-slate-500">Cargando preferencias...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div x-show="!loading" x-cloak class="md:grid md:grid-cols-12 md:gap-8">
+
+        <!-- Sidebar Navigation -->
+        <aside class="md:col-span-3">
+            <div class="rounded-xl border border-slate-200 bg-white shadow-subtle p-4 sticky top-24">
+                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3">Secciones</p>
+                <nav class="space-y-1">
+                    <button @click="activeSection = 'account'"
+                            :class="activeSection === 'account' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fas fa-user text-xs" :class="activeSection === 'account' ? 'text-white' : 'text-slate-400'"></i>
+                        Cuenta
+                    </button>
+                    <button @click="activeSection = 'general'"
+                            :class="activeSection === 'general' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fas fa-building text-xs" :class="activeSection === 'general' ? 'text-white' : 'text-slate-400'"></i>
+                        Workspace
+                    </button>
+
+                    <button @click="activeSection = 'openai'"
+                            :class="activeSection === 'openai' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fas fa-robot text-xs" :class="activeSection === 'openai' ? 'text-white' : 'text-slate-400'"></i>
+                        Motor IA
+                    </button>
+
+                    <button @click="activeSection = 'whatsapp'"
+                            :class="activeSection === 'whatsapp' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fab fa-whatsapp text-xs" :class="activeSection === 'whatsapp' ? 'text-emerald-300' : 'text-slate-400'"></i>
+                        WhatsApp
+                    </button>
+
+                    <button @click="activeSection = 'webhooks'"
+                            :class="activeSection === 'webhooks' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fas fa-plug text-xs" :class="activeSection === 'webhooks' ? 'text-white' : 'text-slate-400'"></i>
+                        API & Webhooks
+                    </button>
+
+                    <button @click="activeSection = 'email'"
+                            :class="activeSection === 'email' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                            class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg transition">
+                        <i class="fas fa-envelope text-xs" :class="activeSection === 'email' ? 'text-white' : 'text-slate-400'"></i>
+                        Notificaciones
+                    </button>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Forms Area -->
+        <div class="md:col-span-9 mt-6 md:mt-0 space-y-6">
+
+            <!-- Account -->
+            <div x-show="activeSection === 'account'" class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6 space-y-6 animate-fade-in">
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Cuenta</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Preferencias personales y acceso.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-6">
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Nombre</label>
+                        <input type="text" value="{{ user.full_name if user and user.full_name else '' }}" disabled class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm text-slate-500 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Email</label>
+                        <input type="text" value="{{ user.email if user and user.email else '' }}" disabled class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm text-slate-500 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Plan</label>
+                        <input type="text" value="{{ company_plan or 'Free Plan' }}" disabled class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm text-slate-500 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Workspace</label>
+                        <input type="text" value="{{ company_name or 'Mi Empresa S.A.' }}" disabled class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm text-slate-500 sm:text-sm py-2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- General -->
+            <div x-show="activeSection === 'general'" class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6 space-y-6 animate-fade-in">
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Perfil del Workspace</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Datos visibles en reportes y exportaciones.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-6">
+                    <div class="sm:col-span-4">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Nombre Legal</label>
+                        <input type="text" x-model="getSetting('general', 'company_name').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">ID Fiscal</label>
+                        <input type="text" x-model="getSetting('general', 'company_tax_id').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-6">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Direccion Fiscal</label>
+                        <textarea rows="3" x-model="getSetting('general', 'company_address').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OpenAI -->
+            <div x-show="activeSection === 'openai'" class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6 space-y-6 animate-fade-in" x-cloak>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="h-9 w-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-900">Configuracion IA</h3>
+                            <p class="mt-0.5 text-xs text-slate-500">Motor de extraccion y limites de costo.</p>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                        GPT-4o Activo
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">OpenAI API Key</label>
+                        <div class="mt-2 relative rounded-lg shadow-sm">
+                            <input type="password" x-model="getSetting('openai', 'openai_api_key').value" class="block w-full rounded-lg border-slate-200 bg-slate-50 focus:border-slate-400 focus:ring-0 sm:text-sm py-2" placeholder="sk-...">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <i class="fas fa-key text-slate-400 text-xs"></i>
+                            </div>
+                        </div>
+                        <p class="mt-1 text-[10px] text-slate-400">Tus claves se almacenan encriptadas.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Modelo</label>
+                        <select x-model="getSetting('openai', 'openai_model').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                            <option value="gpt-4o">GPT-4o (Recomendado)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 (Legacy)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Limite Diario ($)</label>
+                        <input type="number" step="0.5" x-model="getSetting('openai', 'openai_daily_limit').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- WhatsApp -->
+            <div x-show="activeSection === 'whatsapp'" class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6 space-y-6 animate-fade-in" x-cloak>
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Canal WhatsApp</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Gestion de documentos via chat con Evolution API.</p>
+                    </div>
+                </div>
+
+                <!-- Server Config -->
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">URL Evolution API</label>
+                        <input type="url" x-model="getSetting('whatsapp', 'evolution_url').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2" placeholder="https://api.tu-servidor.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Global API Key</label>
+                        <input type="password" x-model="getSetting('whatsapp', 'evolution_apikey').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Nombre de Instancia</label>
+                        <input type="text" x-model="getSetting('whatsapp', 'evolution_instance').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2" placeholder="Empresa1">
+                    </div>
+                </div>
+
+                <!-- Connection Panel -->
+                <div class="border-t border-slate-200 pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-slate-900">Estado de Conexion</h4>
+                        <button @click="checkWaStatus()" class="text-xs font-semibold text-slate-600 hover:text-slate-900">Refrescar</button>
+                    </div>
+
+                    <!-- Status: Loading -->
+                    <div x-show="waStatus === 'loading'" class="flex items-center text-slate-500 text-sm bg-slate-50 p-4 rounded-lg">
+                        <i class="fas fa-circle-notch fa-spin mr-2"></i> Verificando conexion con Evolution API...
+                    </div>
+
+                    <!-- Status: Not Configured -->
+                    <div x-show="waStatus === 'not_configured'" class="text-sm text-slate-500 bg-slate-50 p-4 rounded-lg">
+                        Guarda la URL y API Key para habilitar la conexion.
+                    </div>
+
+                    <!-- Status: Connected -->
+                    <div x-show="waStatus === 'open'" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center animate-fade-in">
+                        <div class="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mr-3">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-emerald-800">WhatsApp Conectado</p>
+                            <p class="text-xs text-emerald-600">El bot esta activo y escuchando mensajes.</p>
+                        </div>
+                    </div>
+
+                    <!-- Status: Disconnected / QR -->
+                    <div x-show="waStatus === 'close' || waStatus === 'connecting'" class="bg-white border border-slate-200 rounded-lg p-6 text-center animate-fade-in">
+                        <div x-show="waQR">
+                            <p class="text-sm font-medium text-slate-900 mb-4">Escanea este codigo:</p>
+                            <img :src="waQR" class="mx-auto border p-2 rounded w-48 h-48 mb-4 bg-white">
+                            <p class="text-xs text-slate-500">Abre WhatsApp > Dispositivos vinculados > Vincular dispositivo</p>
+                        </div>
+                        <div x-show="!waQR">
+                            <div class="mb-4">
+                                <div class="inline-block p-3 rounded-full bg-slate-100">
+                                    <i class="fab fa-whatsapp text-3xl text-slate-400"></i>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-600 mb-4">Instancia desconectada.</p>
+                            <button @click="getWaQR()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center mx-auto">
+                                <i class="fas fa-qrcode mr-2"></i> Generar Codigo QR
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status: Not Found (Create) -->
+                    <div x-show="waStatus === 'instance_not_found'" class="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
+                        <p class="text-sm text-slate-600 mb-4">No se encontro la instancia "<span x-text="getSetting('whatsapp', 'evolution_instance').value"></span>".</p>
+                        <button @click="createWaInstance()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm">
+                            Crear Instancia Nueva
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rules -->
+                <div class="border-t border-slate-200 pt-6 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-900">Reglas de Negocio</h4>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Numero Autorizado (Sender ID)</label>
+                        <input type="text" x-model="getSetting('whatsapp', 'authorized_whatsapp_number').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2" placeholder="Ej: 15551234567">
+                        <p class="mt-1 text-[10px] text-slate-500">Solo este numero podra enviar documentos al bot.</p>
+                    </div>
+                    <div class="flex items-center justify-between pt-2">
+                        <span class="text-sm font-medium text-slate-700">Respuestas Automaticas</span>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="wa_reply" x-model="getSetting('whatsapp', 'whatsapp_auto_reply').value" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                            <label for="wa_reply" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webhooks -->
+            <div x-show="activeSection === 'webhooks'" class="space-y-6 animate-fade-in" x-cloak>
+                <!-- Intro -->
+                <div class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6">
+                    <h3 class="text-base font-semibold text-slate-900">API & Webhooks</h3>
+                    <p class="mt-1 text-xs text-slate-500">Conecta InvoiceFlow con Zapier, Make, n8n u Odoo para automatizar tus flujos de datos.</p>
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 flex items-center gap-2">
+                            <i class="fas fa-bolt text-slate-400"></i>
+                            Zapier
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 flex items-center gap-2">
+                            <i class="fas fa-diagram-project text-slate-400"></i>
+                            Make
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 flex items-center gap-2">
+                            <i class="fas fa-sitemap text-slate-400"></i>
+                            n8n
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 flex items-center gap-2">
+                            <i class="fas fa-cubes text-slate-400"></i>
+                            Odoo
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6" x-data="{ webhookTab: 'docs' }">
+                    <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+                        <button @click="webhookTab = 'docs'"
+                                :class="webhookTab === 'docs' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Cómo funciona
+                        </button>
+                        <button @click="webhookTab = 'payload'"
+                                :class="webhookTab === 'payload' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Payload ejemplo
+                        </button>
+                        <button @click="webhookTab = 'output'"
+                                :class="webhookTab === 'output' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Output
+                        </button>
+                        <button @click="webhookTab = 'security'"
+                                :class="webhookTab === 'security' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Avanzado
+                        </button>
+                    </div>
+
+                    <div class="mt-4" x-show="webhookTab === 'docs'">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">1. Crea un endpoint</p>
+                                <p>Usa un webhook de Zapier/Make o un endpoint propio para recibir eventos.</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">2. Selecciona eventos</p>
+                                <p>Activa <strong class="text-slate-800">invoice.processed</strong> para flujos automáticos.</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">3. Procesa y responde</p>
+                                <p>Retorna 2xx para confirmar recepción en Zapier, Make, n8n u Odoo.</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">4. Mapea campos</p>
+                                <p>Convierte el JSON a tu modelo financiero o ERP (cuentas, proyectos, centros de costo).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4" x-show="webhookTab === 'payload'">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-[11px] text-slate-500">
+                            <p class="font-semibold text-slate-700 mb-2">Ejemplo de payload</p>
+                            <pre class="whitespace-pre-wrap font-mono text-[11px] text-slate-600">
+{
+  "event": "invoice.processed",
+  "timestamp": "2026-01-18T12:00:00Z",
+  "data": {
+    "id": 123,
+    "vendor_name": "Proveedor Demo",
+    "invoice_number": "INV-001",
+    "invoice_date": "2026-01-17",
+    "currency": "USD",
+    "total_amount": 2450.0,
+    "tax_amount": 245.0,
+    "line_items": [{ "description": "Servicio", "quantity": 1, "unit_price": 2205.0 }]
+  }
+}</pre>
+                        </div>
+                    </div>
+
+                    <div class="mt-4" x-show="webhookTab === 'output'">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-600">
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>vendor_name</span><span>Proveedor</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>invoice_number</span><span>Número</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>invoice_date</span><span>Fecha</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>total_amount</span><span>Total</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>tax_amount</span><span>Impuestos</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>currency</span><span>Moneda</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>line_items</span><span>Detalle</span>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span>category</span><span>Clasificación</span>
+                            </div>
+                        </div>
+                        <p class="mt-3 text-[10px] text-slate-400">Incluye campos adicionales según el evento.</p>
+                    </div>
+
+                    <div class="mt-4" x-show="webhookTab === 'security'">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">Seguridad avanzada</p>
+                                <p>Si más adelante necesitas firma HMAC, podemos habilitarla para endpoints propios.</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p class="font-semibold text-slate-700 mb-2">Retries</p>
+                                <p>Si tu endpoint falla, reintenta desde tu herramienta (Zapier/Make/n8n).</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create -->
+                <div class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-4">Añadir endpoint</h4>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">URL de Destino (POST)</label>
+                                <input type="url" x-model="newWebhook.url" class="block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2 font-mono" placeholder="https://hooks.zapier.com/...">
+                            </div>
+                            <div class="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 flex items-center">
+                                Sin secreto por ahora (ideal para n8n/Zapier/Make).
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-2">Suscripcion a Eventos</label>
+                            <div class="flex gap-3 flex-wrap">
+                                <label class="inline-flex items-center cursor-pointer p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition" :class="newWebhook.events.includes('invoice.processed') ? 'border-slate-900 bg-slate-50' : ''">
+                                    <input type="checkbox" value="invoice.processed" x-model="newWebhook.events" class="rounded border-slate-300 text-slate-900 focus:ring-0">
+                                    <span class="ml-2 text-xs font-medium text-slate-700">Factura Procesada</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition" :class="newWebhook.events.includes('audit.alert') ? 'border-slate-900 bg-slate-50' : ''">
+                                    <input type="checkbox" value="audit.alert" x-model="newWebhook.events" class="rounded border-slate-300 text-slate-900 focus:ring-0">
+                                    <span class="ml-2 text-xs font-medium text-slate-700">Alerta de Auditoria</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition" :class="newWebhook.events.includes('invoices.exported') ? 'border-slate-900 bg-slate-50' : ''">
+                                    <input type="checkbox" value="invoices.exported" x-model="newWebhook.events" class="rounded border-slate-300 text-slate-900 focus:ring-0">
+                                    <span class="ml-2 text-xs font-medium text-slate-700">Exportaciones (JSON)</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition" :class="newWebhook.events.includes('*') ? 'border-slate-900 bg-slate-50' : ''">
+                                    <input type="checkbox" value="*" x-model="newWebhook.events" class="rounded border-slate-300 text-slate-900 focus:ring-0">
+                                    <span class="ml-2 text-xs font-medium text-slate-700">Todos los eventos</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                            <button @click="createWebhook()" :disabled="!newWebhook.url" class="inline-flex items-center px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition disabled:opacity-50">
+                                <i class="fas fa-plus mr-2"></i> Crear Webhook
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List -->
+                <div class="space-y-3">
+                    <template x-for="wh in webhooks" :key="wh.id">
+                        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between hover:border-slate-300 transition">
+                            <div class="flex-1 min-w-0 pr-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Active</div>
+                                    <p class="text-sm font-mono text-slate-700 truncate cursor-pointer hover:text-slate-900"
+                                       @click="copyToClipboard(wh.url)" title="Copiar URL">
+                                        <span x-text="wh.url"></span>
+                                        <i class="far fa-copy ml-2 text-slate-400 text-xs"></i>
+                                    </p>
+                                </div>
+                                <div class="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                                    <i class="fas fa-bolt text-slate-400"></i>
+                                    <span x-text="wh.events.join(', ')"></span>
+                                    <span class="text-slate-300">•</span>
+                                    <span x-text="new Date(wh.created_at).toLocaleDateString()"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 mt-3 sm:mt-0">
+                                <button @click="testWebhook(wh.id)" class="text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition">
+                                    Test
+                                </button>
+                                <button @click="deleteWebhook(wh.id)" class="text-xs font-medium text-rose-600 hover:text-rose-700 border border-transparent px-3 py-1.5 rounded-lg hover:bg-rose-50 transition">
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="webhooks.length === 0" class="text-center py-8 text-slate-400 text-sm italic">
+                        No tienes integraciones configuradas.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email -->
+            <div x-show="activeSection === 'email'" class="bg-white shadow-subtle border border-slate-200 rounded-xl p-6 space-y-6 animate-fade-in" x-cloak>
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Configuracion SMTP</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Envio de reportes automatizados.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-6">
+                    <div class="sm:col-span-4">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Host</label>
+                        <input type="text" x-model="getSetting('email', 'smtp_host').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Puerto</label>
+                        <input type="number" x-model="getSetting('email', 'smtp_port').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Usuario</label>
+                        <input type="text" x-model="getSetting('email', 'smtp_user').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Password</label>
+                        <input type="password" x-model="getSetting('email', 'smtp_password').value" class="mt-2 block w-full rounded-lg border-slate-200 bg-slate-50 shadow-sm focus:border-slate-400 focus:ring-0 sm:text-sm py-2">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-cloak class="fixed bottom-8 right-8 z-50 transition transform"
+         x-transition:enter="translate-y-2 opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
+         x-transition:leave="translate-y-2 opacity-0">
+        <div class="bg-slate-950 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-3 border border-slate-800">
+            <i class="fas fa-check-circle text-emerald-400"></i>
+            <span class="text-xs font-bold" x-text="toast.message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function settingsApp() {
+        return {
+            loading: true,
+            saving: false,
+            activeSection: 'account',
+            settings: {},
+            toast: { show: false, message: '' },
+
+            // Webhooks State
+            webhooks: [],
+            newWebhook: { url: '', events: ['invoice.processed'] },
+
+            // WhatsApp State
+            waStatus: 'loading',
+            waQR: null,
+
+            async init() {
+                try {
+                    const res = await fetch('/api/settings');
+                    if(res.ok) {
+                        this.settings = await res.json();
+                        // Init empty categories
+                        ['general', 'personalization', 'openai', 'whatsapp', 'email', 'storage'].forEach(c => { if(!this.settings[c]) this.settings[c] = []; });
+                    }
+                    await this.loadWebhooks();
+                    // Check WA status if config exists
+                    if (this.getSetting('whatsapp', 'evolution_url').value) {
+                        this.checkWaStatus();
+                    } else {
+                        this.waStatus = 'not_configured';
+                    }
+                } catch(e) { console.error(e); }
+                finally { this.loading = false; }
+            },
+
+            // WhatsApp Methods
+            async checkWaStatus() {
+                this.waStatus = 'loading';
+                try {
+                    const res = await fetch('/evolution/proxy/status');
+                    const data = await res.json();
+
+                    if (data.status === 'not_configured') {
+                        this.waStatus = 'not_configured';
+                    } else if (data.instance) {
+                        // Evolution v2 response structure
+                        const state = data.instance.state;
+                        this.waStatus = state === 'open' ? 'open' : 'close';
+                    } else if (data.status === 'instance_not_found') {
+                        this.waStatus = 'instance_not_found';
+                    } else {
+                        this.waStatus = 'error';
+                    }
+                } catch(e) {
+                    console.error(e);
+                    this.waStatus = 'error';
+                }
+            },
+
+            async getWaQR() {
+                this.waStatus = 'connecting';
+                try {
+                    const res = await fetch('/evolution/proxy/qr');
+                    const data = await res.json();
+                    if (data.base64) {
+                        this.waQR = data.base64; // Usually starts with "data:image/png;base64,..."
+                    } else if (data.code) {
+                        // If only code returned, might need generation (skip for now, assume base64)
+                    }
+                } catch(e) {
+                    console.error(e);
+                    this.showToast('Error obteniendo QR', 'error');
+                    this.waStatus = 'error';
+                }
+            },
+
+            async createWaInstance() {
+                try {
+                    const res = await fetch('/evolution/proxy/create', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.instance || data.id) {
+                        this.showToast('Instancia creada');
+                        this.checkWaStatus();
+                    } else {
+                        this.showToast('Error creando instancia', 'error');
+                    }
+                } catch(e) { console.error(e); }
+            },
+
+            // Webhook Methods
+            async loadWebhooks() {
+                try {
+                    const res = await fetch('/api/webhooks');
+                    if(res.ok) this.webhooks = await res.json();
+                } catch(e) { console.error("Error loading webhooks", e); }
+            },
+
+            async createWebhook() {
+                if(!this.newWebhook.url) return;
+                try {
+                    const res = await fetch('/api/webhooks', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(this.newWebhook)
+                    });
+                    if(res.ok) {
+                        this.newWebhook = { url: '', events: ['invoice.processed'] };
+                        this.loadWebhooks();
+                        this.showToast('Integracion creada');
+                    }
+                } catch(e) { console.error(e); }
+            },
+
+            async deleteWebhook(id) {
+                if(!confirm('¿Eliminar esta integracion?')) return;
+                try {
+                    await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+                    this.loadWebhooks();
+                    this.showToast('Integracion eliminada');
+                } catch(e) { console.error(e); }
+            },
+
+            async testWebhook(id) {
+                this.showToast('Enviando ping...');
+                try {
+                    const res = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+                    const data = await res.json();
+                    if(data.status === 'success') {
+                        const success = data.delivery_result.results[0]?.success;
+                        this.showToast(success ? '✅ Ping recibido' : '❌ Error de conexion');
+                    }
+                } catch(e) { this.showToast('Error de red'); }
+            },
+
+            getSetting(cat, key) {
+                if(!this.settings[cat]) this.settings[cat] = [];
+                let s = this.settings[cat].find(x => x.key === key);
+                if(!s) { s = { key, value: '', category: cat, type: 'string' }; this.settings[cat].push(s); }
+                return s;
+            },
+
+            async saveSettings() {
+                this.saving = true;
+                const updates = [];
+                Object.keys(this.settings).forEach(cat => {
+                    this.settings[cat].forEach(s => {
+                        updates.push({
+                            key: s.key,
+                            value: s.value,
+                            category: s.category || cat,
+                            type: s.type || 'string'
+                        });
+                    });
+                });
+
+                try {
+                    const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(updates)
+                    });
+                    if(res.ok) this.showToast('Cambios guardados');
+                } catch(e) { console.error(e); }
+                finally { this.saving = false; }
+            },
+
+            showToast(message, type = 'success') {
+                this.toast.message = message;
+                this.toast.show = true;
+                setTimeout(() => this.toast.show = false, 3000);
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+invoices.db
+
+# Uploads (archivos temporales)
+uploads/*
+!uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime
+.coverage
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Heroku
+.heroku/
+venv/
+
+# Virtual environments
+env/
+ENV/
+.venv/
+
+# Security
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Secrets
+secrets.yaml
+secrets.json
+credentials.json
+.credentials
+
+# Docker
+docker-compose.override.yml
+
+# Testing
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
+
+# Backup files
+*.bak
+*.backup
+*.old

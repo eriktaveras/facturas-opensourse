@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Error del Servidor - Error 500{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full text-center">
+        <div class="mb-8">
+            <div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-red-100">
+                <i class="fas fa-exclamation-triangle text-4xl text-red-600"></i>
+            </div>
+        </div>
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">500</h2>
+        <h3 class="text-2xl font-bold text-gray-800 mb-2">Error Interno del Servidor</h3>
+        <p class="text-gray-600 mb-8">
+            Ha ocurrido un problema inesperado en nuestros servidores. Por favor, intenta nuevamente en unos momentos.
+        </p>
+        <div class="space-x-4">
+            <a href="/" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <i class="fas fa-home mr-2"></i>
+                Inicio
+            </a>
+            <button onclick="location.reload()" class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Reintentar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

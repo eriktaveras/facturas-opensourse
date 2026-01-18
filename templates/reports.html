@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Analitica Avanzada | InvoiceFlow{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="analyticsApp()" class="max-w-7xl mx-auto space-y-8 pb-12 animate-fade-in">
+
+    <!-- Header -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-subtle">
+        <div class="px-8 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Analitica de Rendimiento</h2>
+                <p class="mt-1 text-sm text-slate-500">Analisis historico de eficiencia, costos y comportamiento del modelo.</p>
+            </div>
+            <div class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 overflow-hidden">
+                <button @click="period = '7d'" :class="period === '7d' ? 'bg-slate-900 text-white' : 'hover:bg-white'" class="px-4 py-2 transition">7 Dias</button>
+                <button @click="period = '30d'" :class="period === '30d' ? 'bg-slate-900 text-white' : 'hover:bg-white'" class="px-4 py-2 transition border-x border-slate-200">30 Dias</button>
+                <button @click="period = '90d'" :class="period === '90d' ? 'bg-slate-900 text-white' : 'hover:bg-white'" class="px-4 py-2 transition">Trimestre</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost & Efficiency -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-subtle p-6">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Eficiencia de Costos</h3>
+                    <p class="text-[10px] text-slate-500">Relacion entre volumen procesado y costo operativo.</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wide">Costo Promedio</p>
+                    <p class="text-xl font-mono font-bold text-slate-900" x-text="'$' + (data.costs?.avg_cost_per_doc || 0).toFixed(4)"></p>
+                </div>
+            </div>
+            <div class="h-64 relative w-full">
+                <canvas id="costEfficiencyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-subtle p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-sm font-bold text-slate-900">Rendimiento por Modelo IA</h3>
+                <span class="text-[10px] font-semibold text-slate-400">Tokens / costo</span>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-slate-100">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Modelo</th>
+                            <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase">Tokens/Doc</th>
+                            <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase">Costo Total</th>
+                            <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase">Volumen</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        <template x-for="model in data.costs?.model_breakdown || []" :key="model.model">
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700" x-text="model.model"></span>
+                                </td>
+                                <td class="px-4 py-3 text-right text-xs font-mono text-slate-600" x-text="Math.round(model.total_tokens / model.requests)"></td>
+                                <td class="px-4 py-3 text-right text-xs font-mono font-bold text-slate-900" x-text="formatCurrency(model.total_cost)"></td>
+                                <td class="px-4 py-3 text-right text-xs text-slate-500" x-text="model.requests + ' reqs'"></td>
+                            </tr>
+                        </template>
+                        <tr x-show="!data.costs?.model_breakdown?.length">
+                            <td colspan="4" class="px-4 py-8 text-center text-xs text-slate-400 italic">Sin datos de modelos disponibles</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-700 flex items-start gap-2">
+                <i class="fas fa-lightbulb mt-0.5 text-slate-500"></i>
+                <p>Usa este cuadro para comparar costo por documento y ajustar tu politica de modelos.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality & Volume -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-subtle p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-2">Tipologia de Alertas</h3>
+            <p class="text-[10px] text-slate-500 mb-6">Distribucion de los problemas detectados.</p>
+            <div class="relative h-48 w-full flex justify-center">
+                <canvas id="alertsDistributionChart"></canvas>
+            </div>
+            <div class="mt-6 space-y-3">
+                <template x-for="item in alertBreakdown" :key="item.label">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-600 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded" :style="`background-color: ${item.color}`"></span>
+                            <span x-text="item.label"></span>
+                        </span>
+                        <span class="font-bold" x-text="item.percentage + '%' "></span>
+                    </div>
+                </template>
+                <div x-show="!alertBreakdown.length" class="text-center text-xs text-slate-400 py-4">
+                    No se han detectado alertas de auditoria.
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-subtle p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-sm font-bold text-slate-900">Tendencia de Volumen Mensual</h3>
+                <span class="text-xs text-slate-500">Ultimos 6 meses</span>
+            </div>
+            <div class="relative h-64 w-full">
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Intelligence -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="text-sm font-bold text-slate-900">Inteligencia de Categorizacion</h3>
+            <p class="text-[10px] text-slate-500">Desglose de como la IA clasifica los gastos.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-px bg-slate-100">
+            <template x-for="cat in data.categories" :key="cat.category">
+                <div class="bg-white p-4 hover:bg-slate-50 transition group">
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider mb-1" x-text="cat.category"></p>
+                    <p class="text-lg font-bold text-slate-900 group-hover:text-slate-900" x-text="formatCurrency(cat.total)"></p>
+                    <div class="mt-2 flex items-center justify-between">
+                        <span class="text-[10px] text-slate-500" x-text="cat.count + ' docs'"></span>
+                        <div class="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-slate-900" :style="`width: ${(cat.count / 50) * 100}%`"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+    function analyticsApp() {
+        return {
+            period: '30d',
+            data: {},
+            charts: {},
+            alertBreakdown: [],
+
+            async init() {
+                Chart.defaults.font.family = "'Inter', sans-serif";
+                Chart.defaults.color = '#64748b';
+
+                try {
+                    const res = await fetch('/statistics'); // Could create a specific endpoint for deep analytics
+                    if(res.ok) {
+                        this.data = await res.json();
+                        this.$nextTick(() => this.renderCharts());
+                    }
+                } catch(e) { console.error(e); }
+            },
+
+            renderCharts() {
+                // 1. Cost Efficiency (Dual Axis: Volume vs Cost)
+                const ctxCost = document.getElementById('costEfficiencyChart');
+                if (ctxCost && this.data.charts?.volume_history) {
+                    const dates = this.data.charts.volume_history.map(d => d.date);
+                    const volumes = this.data.charts.volume_history.map(d => d.count);
+                    // Mock cost data based on volume for demo purposes (replace with real data in prod)
+                    const costs = volumes.map(v => v * (this.data.costs?.avg_cost_per_doc || 0.05));
+
+                    this.charts.cost = new Chart(ctxCost, {
+                        type: 'bar',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                {
+                                    label: 'Volumen',
+                                    data: volumes,
+                                    backgroundColor: '#cbd5e1',
+                                    order: 2
+                                },
+                                {
+                                    label: 'Costo ($)',
+                                    data: costs,
+                                    type: 'line',
+                                    borderColor: '#0f172a',
+                                    backgroundColor: 'rgba(15, 23, 42, 0.12)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    order: 1,
+                                    yAxisID: 'y1'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: { legend: { display: true, position: 'bottom' } },
+                            scales: {
+                                y: { beginAtZero: true, grid: { display: false } },
+                                y1: { type: 'linear', display: true, position: 'right', grid: { borderDash: [4, 4] } },
+                                x: { grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+
+                // 2. Alerts Distribution (Real Data)
+                const ctxAlerts = document.getElementById('alertsDistributionChart');
+                if (ctxAlerts && this.data.audit?.distribution) {
+                    const dist = this.data.audit.distribution;
+
+                    // Si no hay datos, mostrar placeholder
+                    const labels = dist.labels?.length ? dist.labels : ['Sin Alertas'];
+                    const data = dist.data?.length ? dist.data : [1];
+                    const colors = dist.labels?.length ? ['#fbbf24', '#f87171', '#60a5fa', '#a78bfa', '#34d399'] : ['#e5e7eb'];
+
+                    this.charts.alerts = new Chart(ctxAlerts, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: data,
+                                backgroundColor: colors,
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            cutout: '65%'
+                        }
+                    });
+
+                    // Actualizar lista de porcentajes
+                    this.alertBreakdown = labels.map((label, i) => {
+                        const val = data[i];
+                        const total = data.reduce((a, b) => a + b, 0);
+                        return {
+                            label: label,
+                            percentage: Math.round((val / total) * 100),
+                            color: colors[i % colors.length]
+                        };
+                    });
+                }
+
+                // 3. Monthly Trend (Long term)
+                const ctxTrend = document.getElementById('monthlyTrendChart');
+                if (ctxTrend && this.data.monthly_stats) {
+                    this.charts.trend = new Chart(ctxTrend, {
+                        type: 'bar',
+                        data: {
+                            labels: this.data.monthly_stats.map(m => m.month),
+                            datasets: [{
+                                label: 'Volumen Procesado',
+                                data: this.data.monthly_stats.map(m => m.count),
+                                backgroundColor: '#0f172a',
+                                borderRadius: 4,
+                                barThickness: 32
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
+                                x: { grid: { display: false } }
+                            }
+                        }
+                    });
+                }
+            },
+
+            formatCurrency(val) {
+                return new Intl.NumberFormat('es-US', { style: 'currency', currency: 'USD' }).format(val || 0);
+            }
+        }
+    }
+</script>
+{% endblock %}

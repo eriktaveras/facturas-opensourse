@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Factura {{ invoice.id }} | InvoiceFlow{% endblock %}
+
+{% block body_attrs %}x-data="invoiceDetailApp()"{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col gap-6 animate-fade-in pb-12">
+    <!-- PROFESSIONAL HEADER -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-subtle">
+        <div class="px-8 py-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div class="flex items-start gap-4">
+                <a href="/?tab=invoices" class="mt-1 text-slate-400 hover:text-slate-900 transition-colors">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <div class="h-11 w-11 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-500">
+                    <i :class="invoice.file_type === 'pdf' ? 'fas fa-file-pdf' : 'fas fa-image'"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h1 class="text-xl font-bold text-slate-900" x-text="invoice.vendor_name || 'Documento sin procesar'"></h1>
+                        <span class="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                              :class="invoice.processed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+                            <span class="h-1.5 w-1.5 rounded-full" :class="invoice.processed ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+                            <span x-text="invoice.processed ? 'Procesado' : 'Borrador'"></span>
+                        </span>
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-4 text-[11px] font-medium text-slate-500">
+                        <span class="inline-flex items-center gap-2"><i class="far fa-hashtag"></i><span x-text="invoice.invoice_number || 'NCF no detectado'"></span></span>
+                        <span class="text-slate-300">•</span>
+                        <span class="inline-flex items-center gap-2"><i class="far fa-calendar"></i><span x-text="formatDate(invoice.invoice_date)"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <button x-show="!invoice.processed" @click="processInvoice()" :disabled="processing"
+                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60">
+                    <i x-show="!processing" class="fas fa-wand-magic-sparkles"></i>
+                    <i x-show="processing" class="fas fa-circle-notch fa-spin"></i>
+                    Analizar con IA
+                </button>
+                <button @click="saveChanges()" :disabled="saving"
+                        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-700 shadow-sm hover:bg-slate-50">
+                    <i class="far fa-save"></i>
+                    Guardar
+                </button>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-900">
+                        <i class="fas fa-ellipsis-v text-xs"></i>
+                    </button>
+                    <div x-show="open" @click.away="open = false" x-cloak
+                         class="absolute right-0 mt-2 w-56 rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden">
+                        <a :href="`/uploads/${invoice.file_path ? invoice.file_path.split('/').pop() : invoice.filename}`" target="_blank"
+                           class="block px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">Descargar Original</a>
+                        <div class="h-px bg-slate-100"></div>
+                        <button @click="deleteInvoice()" class="w-full text-left px-4 py-3 text-xs font-semibold text-rose-600 hover:bg-rose-50">Eliminar Documento</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- LEFT COLUMN -->
+        <div class="lg:col-span-8 space-y-6">
+            <!-- ALERTS -->
+            <div x-show="getAuditFlags().length > 0" class="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-triangle-exclamation text-amber-600 mt-0.5"></i>
+                    <div class="flex-1">
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-900">Observaciones de Auditoría</p>
+                        <ul class="mt-2 space-y-1">
+                            <template x-for="flag in getAuditFlags()" :key="flag">
+                                <li class="text-xs font-medium text-amber-900 flex items-center gap-2">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                                    <span x-text="flag"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOTALS SUMMARY -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-subtle">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 px-6 py-5">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Factura</p>
+                        <p class="mt-1 text-2xl font-bold text-slate-900" x-text="formatCurrency(invoice.total_amount, invoice.currency)"></p>
+                        <p class="text-[11px] font-semibold text-slate-400" x-text="invoice.currency"></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Base Imponible</p>
+                        <p class="mt-1 text-lg font-semibold text-slate-900" x-text="formatCurrency((invoice.total_amount - (invoice.tax_amount || 0)), invoice.currency)"></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">ITBIS</p>
+                        <p class="mt-1 text-lg font-semibold text-slate-900" x-text="formatCurrency(invoice.tax_amount, invoice.currency)"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACCOUNTING DETAILS -->
+            <div class="rounded-xl border border-slate-200 bg-white shadow-subtle overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-600">Detalle de Datos</h3>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Proveedor / Emisor</label>
+                            <input type="text" x-model="editableInvoice.vendor_name" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                            <p class="mt-2 text-[10px] text-slate-400 italic">Nombre detectado por IA.</p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">NCF / Comprobante</label>
+                            <input type="text" x-model="editableInvoice.invoice_number" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Fecha de Emisión</label>
+                            <input type="date" x-model="editableInvoice.invoice_date" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Categoría de Gasto</label>
+                            <select x-model="editableInvoice.category" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                                <option value="">Sin categoría</option>
+                                <option value="Oficina">Material de Oficina</option>
+                                <option value="Software">Suscripciones / SaaS</option>
+                                <option value="Servicios">Servicios Profesionales</option>
+                                <option value="Viajes">Viajes y Comida</option>
+                                <option value="Ventas">Ingresos por Ventas</option>
+                            </select>
+                            <p class="mt-2 text-[10px] text-slate-400 italic">Ajusta la clasificación para mejorar la IA.</p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Tipo Bienes y Servicios (DGII 606)</label>
+                            <select x-model="editableInvoice.goods_services_type" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                                <option value="">Seleccionar...</option>
+                                <option value="01">01 - Gastos de personal</option>
+                                <option value="02">02 - Gastos por trabajos, suministros y servicios</option>
+                                <option value="03">03 - Arrendamientos</option>
+                                <option value="04">04 - Gastos de activos fijos</option>
+                                <option value="05">05 - Gastos de representacion</option>
+                                <option value="06">06 - Otras deducciones admitidas</option>
+                                <option value="07">07 - Gastos financieros</option>
+                                <option value="08">08 - Gastos extraordinarios</option>
+                                <option value="09">09 - Compras y gastos que forman parte del costo de venta</option>
+                                <option value="10">10 - Adquisiciones de activos</option>
+                                <option value="11">11 - Gastos de seguros</option>
+                            </select>
+                            <p class="mt-2 text-[10px] text-slate-400 italic">Requerido para el reporte 606.</p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Moneda</label>
+                            <select x-model="editableInvoice.currency" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition">
+                                <option value="DOP">DOP - Peso Dominicano</option>
+                                <option value="USD">USD - Dólar</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="MXN">MXN - Peso</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Concepto / Descripción</label>
+                            <textarea x-model="editableInvoice.description" rows="2" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-slate-400 focus:ring-0 transition"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-slate-100">
+                        <div class="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                            <div class="flex justify-between text-xs font-semibold text-slate-600">
+                                <span>Base Imponible</span>
+                                <span class="font-mono text-slate-900" x-text="formatCurrency((invoice.total_amount - (invoice.tax_amount || 0)), invoice.currency)"></span>
+                            </div>
+                            <div class="mt-2 flex justify-between text-xs font-semibold text-slate-600">
+                                <span>ITBIS</span>
+                                <span class="font-mono text-slate-900" x-text="formatCurrency(invoice.tax_amount, invoice.currency)"></span>
+                            </div>
+                            <div class="mt-3 border-t border-slate-200 pt-3 flex justify-between text-xs font-bold uppercase tracking-[0.2em] text-slate-700">
+                                <span>Total</span>
+                                <span class="font-mono text-slate-900" x-text="formatCurrency(invoice.total_amount, invoice.currency)"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATOS FISCALES -->
+            <div x-show="invoice.vendor_tax_id || invoice.vendor_fiscal_address"
+                 class="rounded-xl border border-slate-200 bg-white shadow-subtle overflow-hidden"
+                 x-data="{ expanded: true }">
+                <button @click="expanded = !expanded" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition">
+                    <div class="flex items-center gap-3">
+                        <div class="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-600">Datos Fiscales del Proveedor</h3>
+                            <p class="text-[10px] text-slate-400">RNC y dirección fiscal</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-down text-xs text-slate-400 transition-transform" :class="expanded ? 'rotate-180' : ''"></i>
+                </button>
+                <div x-show="expanded" x-cloak x-transition class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div x-show="invoice.vendor_tax_id">
+                        <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">RNC del Proveedor</label>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-mono text-slate-900">
+                            <i class="fas fa-hashtag mr-2 text-slate-400"></i>
+                            <span x-text="invoice.vendor_tax_id"></span>
+                        </div>
+                    </div>
+                    <div x-show="invoice.vendor_fiscal_address" class="md:col-span-2">
+                        <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">Dirección Fiscal</label>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900">
+                            <i class="fas fa-map-marker-alt mr-2 text-slate-400"></i>
+                            <span x-text="invoice.vendor_fiscal_address"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LINE ITEMS -->
+            <div x-show="invoice.line_items && invoice.line_items.length > 0" class="rounded-xl border border-slate-200 bg-white shadow-subtle overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-600 flex items-center gap-2">
+                        <i class="fas fa-list"></i>
+                        Detalle de Productos/Servicios
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead class="bg-slate-100 border-b border-slate-200">
+                            <tr>
+                                <th class="text-left px-4 py-2 font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500">Descripción</th>
+                                <th class="text-center px-4 py-2 font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500 w-20">Cant.</th>
+                                <th class="text-right px-4 py-2 font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500 w-28">P. Unitario</th>
+                                <th class="text-right px-4 py-2 font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500 w-28">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="(item, index) in invoice.line_items" :key="index">
+                                <tr class="hover:bg-slate-50 transition">
+                                    <td class="px-4 py-2.5 text-slate-900" x-text="item.description"></td>
+                                    <td class="px-4 py-2.5 text-center text-slate-600 font-mono" x-text="formatQuantity(item.quantity)"></td>
+                                    <td class="px-4 py-2.5 text-right text-slate-900 font-mono" x-text="formatCurrency(item.unit_price, invoice.currency)"></td>
+                                    <td class="px-4 py-2.5 text-right text-slate-900 font-bold font-mono" x-text="formatCurrency(item.subtotal, invoice.currency)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot class="bg-slate-100 border-t-2 border-slate-200">
+                            <tr>
+                                <td colspan="3" class="px-4 py-2 text-right font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500">Total Ítems</td>
+                                <td class="px-4 py-2 text-right font-bold text-slate-900 font-mono" x-text="formatCurrency(calculateLineItemsTotal(), invoice.currency)"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="px-6 py-3 text-[10px] text-slate-500 italic bg-slate-50 border-t border-slate-100">
+                    Los subtotales excluyen impuestos. Total con ITBIS: <span class="font-bold" x-text="formatCurrency(invoice.total_amount, invoice.currency)"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: MINI PREVIEW + ACCOUNTING NOTE -->
+        <div class="lg:col-span-4 space-y-6">
+            <div class="rounded-xl border border-slate-800 bg-slate-950 text-white shadow-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Documento Fuente</span>
+                    <button @click="showFullImage = true" class="h-8 w-8 rounded-lg border border-slate-800 text-slate-400 hover:text-white transition">
+                        <i class="fas fa-expand text-xs"></i>
+                    </button>
+                </div>
+                <div class="p-4 flex items-center justify-center min-h-[180px] max-h-[220px]">
+                    <template x-if="invoice.file_type === 'image'">
+                        <img :src="optimizedImage" class="max-w-full max-h-[180px] object-contain rounded-lg shadow-2xl ring-1 ring-white/10 cursor-zoom-in" @click="showFullImage = true">
+                    </template>
+                    <template x-if="invoice.file_type === 'pdf'">
+                        <div class="text-center p-6">
+                            <div class="mx-auto h-12 w-12 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center">
+                                <i class="fas fa-file-pdf text-rose-500 text-xl"></i>
+                            </div>
+                            <p class="mt-3 text-[11px] text-slate-400">Vista previa PDF no disponible</p>
+                            <a :href="`/uploads/${invoice.file_path ? invoice.file_path.split('/').pop() : invoice.filename}`" target="_blank"
+                               class="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-900">
+                                Ver PDF Externo
+                            </a>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white shadow-subtle overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-600">Vista Previa Asiento</h3>
+                </div>
+                <div class="p-6 space-y-3 text-xs font-mono text-slate-600">
+                    <div class="flex justify-between">
+                        <span>600.000 Gastos Generales</span>
+                        <span class="text-emerald-600" x-text="'+ ' + formatCurrency((invoice.total_amount - (invoice.tax_amount || 0)), invoice.currency)"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>472.000 ITBIS Crédito Fiscal</span>
+                        <span class="text-emerald-600" x-text="'+ ' + formatCurrency(invoice.tax_amount, invoice.currency)"></span>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex justify-between">
+                        <span>400.000 Proveedores</span>
+                        <span class="text-rose-500" x-text="'- ' + formatCurrency(invoice.total_amount, invoice.currency)"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN MODAL -->
+    <div x-show="showFullImage" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-lg p-8" @click="showFullImage = false">
+        <img :src="optimizedImage" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl ring-1 ring-white/10">
+        <button class="absolute top-8 right-8 text-white/60 hover:text-white text-3xl transition">&times;</button>
+    </div>
+
+    <!-- TOAST -->
+    <div x-show="toast.show" x-cloak class="fixed bottom-8 right-8 z-[110]">
+        <div class="rounded-xl border border-slate-800 bg-slate-950 px-5 py-3 text-white shadow-2xl flex items-center gap-3">
+            <i class="fas fa-check-circle text-emerald-400"></i>
+            <span class="text-xs font-bold" x-text="toast.message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function invoiceDetailApp() {
+        return {
+            invoice: {{ invoice.to_dict() | tojson }},
+            editableInvoice: {},
+            optimizedImage: null,
+            showFullImage: false,
+            processing: false,
+            saving: false,
+            toast: { show: false, message: '' },
+
+            async init() {
+                this.resetForm();
+                if (this.invoice.file_type === 'image') await this.loadImage();
+            },
+
+            resetForm() {
+                const i = this.invoice;
+                this.editableInvoice = {
+                    vendor_name: i.vendor_name || '',
+                    invoice_number: i.invoice_number || '',
+                    invoice_date: i.invoice_date ? i.invoice_date.split('T')[0] : '',
+                    category: i.category || '',
+                    currency: i.currency || 'DOP',
+                    description: i.description || '',
+                    goods_services_type: i.goods_services_type || ''
+                };
+            },
+
+            async loadImage() {
+                try {
+                    const res = await fetch(`/invoice/${this.invoice.id}/optimized-image`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.optimizedImage = data.optimized_image;
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            async saveChanges() {
+                this.saving = true;
+                try {
+                    const res = await fetch(`/invoices/${this.invoice.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.editableInvoice)
+                    });
+                    if (res.ok) {
+                        this.invoice = await res.json();
+                        this.showToast('Cambios guardados');
+                    }
+                } catch (e) { console.error(e); }
+                finally { this.saving = false; }
+            },
+
+            async processInvoice() {
+                this.processing = true;
+                try {
+                    const res = await fetch(`/process/${this.invoice.id}`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.extracted_data) {
+                        this.showToast('IA ha finalizado el análisis');
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                } catch (e) { console.error(e); }
+                finally { this.processing = false; }
+            },
+
+            async deleteInvoice() {
+                if (!confirm('¿Eliminar este documento permanentemente?')) return;
+                await fetch(`/invoices/${this.invoice.id}`, { method: 'DELETE' });
+                window.location.href = '/?tab=invoices';
+            },
+
+            getAuditFlags() {
+                try {
+                    if (!this.invoice.audit_flags) return [];
+                    const flags = typeof this.invoice.audit_flags === 'string'
+                        ? JSON.parse(this.invoice.audit_flags)
+                        : this.invoice.audit_flags;
+                    return Array.isArray(flags) ? flags : [];
+                } catch (e) { return []; }
+            },
+
+            formatCurrency(val, curr = 'DOP') {
+                return new Intl.NumberFormat('es-DO', { style: 'currency', currency: curr, maximumFractionDigits: 2 }).format(val || 0);
+            },
+            formatDate(str) {
+                if (!str) return '---';
+                return new Date(str).toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' });
+            },
+            showToast(msg) { this.toast.message = msg; this.toast.show = true; setTimeout(() => this.toast.show = false, 3000); },
+
+            formatQuantity(qty) {
+                return new Intl.NumberFormat('es-DO', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(qty || 0);
+            },
+
+            calculateLineItemsTotal() {
+                if (!this.invoice.line_items || this.invoice.line_items.length === 0) return 0;
+                return this.invoice.line_items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+            }
+        }
+    }
+</script>
+{% endblock %}
