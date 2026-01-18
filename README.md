@@ -614,9 +614,10 @@ En resumen: puedes usar, modificar y distribuir este software libremente, inclus
 Especialista en automatización de negocios con Python, N8N y WhatsApp bots. Con más de 150 proyectos exitosos ayudando a empresas a automatizar sus operaciones y ahorrar cientos de horas mensuales.
 
 [![Website](https://img.shields.io/badge/🌐-eriktaveras.com-blue)](https://eriktaveras.com)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Erik%20Taveras-0077B5?logo=linkedin)](https://linkedin.com/in/eriktaveras)
-[![Udemy](https://img.shields.io/badge/Udemy-Instructor-EC5252?logo=udemy)](https://www.udemy.com/user/erik-taveras-youtube/)
-[![YouTube](https://img.shields.io/badge/YouTube-Erik%20Taveras-FF0000?logo=youtube)](https://youtube.com/@eriktaveras)
+[![Instagram](https://img.shields.io/badge/Instagram-@eriktaveras-E4405F?logo=instagram&logoColor=white)](https://instagram.com/eriktaveras)
+[![TikTok](https://img.shields.io/badge/TikTok-@erik.py-000000?logo=tiktok&logoColor=white)](https://tiktok.com/@erik.py)
+[![Udemy](https://img.shields.io/badge/Udemy-Instructor-EC5252?logo=udemy&logoColor=white)](https://www.udemy.com/user/erik-taveras-youtube/)
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=6JGWVDRJFG6FY)
 
 *"Automatizando el futuro, un bot a la vez"*
 
@@ -670,9 +671,11 @@ Si este proyecto te ahorra tiempo o te ayuda con tu negocio, considera:
 
 🐦 **Compartirlo** en redes sociales
 
-☕ **Invitarme un café** (link de donación)
+☕ **[Invitarme un café](https://www.paypal.com/donate/?hosted_button_id=6JGWVDRJFG6FY)** vía PayPal
 
 📣 **Mencionarlo** en tu blog o podcast
+
+📱 **Sígueme en**: [Instagram @eriktaveras](https://instagram.com/eriktaveras) | [TikTok @erik.py](https://tiktok.com/@erik.py)
 
 ---
 
@@ -683,10 +686,3 @@ Si este proyecto te ahorra tiempo o te ayuda con tu negocio, considera:
 [⬆ Volver arriba](#-invoiceflow-enterprise)
 
 </div>
-
----
-
-**Fuentes consultadas:**
-- [Erik Taveras - Website Oficial](https://eriktaveras.com/)
-- [Podcast: Automatización de Negocios con IA](https://creators.spotify.com/pod/profile/losverdaderoscodigos/episodes/100---Automatizacin-de-Negocios-con-IA-Con-Erik-Taveras-e34katr)
-- [Cursos de Erik en Udemy](https://www.udemy.com/user/erik-taveras-youtube/)
